@@ -3,7 +3,7 @@ from flask_cors import CORS
 import os
 import smtplib
 from email.message import EmailMessage
-import re
+import re # Importiere das re-Modul für reguläre Ausdrücke
 
 app = Flask(__name__)
 CORS(app)
@@ -14,6 +14,7 @@ user_states = {}
 # FAQ-Datenbank
 faq_db = {
     "fragen": [
+        # Deine vorhandenen FAQ-Einträge...
         {"keywords": ["öffnungszeiten", "wann geöffnet", "wann offen", "arbeitszeit"], "antwort": "Wir sind Montag–Freitag von 9:00 bis 18:00 Uhr und Samstag von 9:00 bis 14:00 Uhr für Sie da. Sonntag ist Ruhetag."},
         {"keywords": ["termin", "vereinbaren", "buchen", "reservieren", "online"], "antwort": "Wenn Sie einen Termin vereinbaren möchten, geben Sie bitte zuerst Ihren vollständigen Namen ein."},
         {"keywords": ["adresse", "wo", "anschrift", "finden", "lage"], "antwort": "Unsere Adresse lautet: Musterstraße 12, 10115 Berlin. Wir sind zentral und gut erreichbar."},
@@ -45,13 +46,10 @@ def send_appointment_request(request_data):
     sender_email = os.environ.get("SENDER_EMAIL")
     sender_password = os.environ.get("SENDER_PASSWORD")
     receiver_email = os.environ.get("RECEIVER_EMAIL")
-    
-    # Füge die Telefonnummer hier hinzu
-    phone_number = "030-123456"
 
     if not all([sender_email, sender_password, receiver_email]):
         print("E-Mail-Konfiguration fehlt. E-Mail kann nicht gesendet werden.")
-        return False, f"Entschuldigung, es gab ein internes Problem. Bitte rufen Sie uns direkt unter {phone_number} an."
+        return False
 
     msg = EmailMessage()
     msg['Subject'] = "Neue Terminanfrage über den Chatbot"
@@ -71,19 +69,10 @@ def send_appointment_request(request_data):
         with smtplib.SMTP_SSL("smtp.web.de", 465) as smtp:
             smtp.login(sender_email, sender_password)
             smtp.send_message(msg)
-        return True, "Ihre Terminanfrage wurde erfolgreich übermittelt."
-    except smtplib.SMTPAuthenticationError:
-        print("Fehler: Authentifizierung fehlgeschlagen. Überprüfen Sie Benutzername und Passwort.")
-        return False, f"Entschuldigung, es gab ein Problem beim Senden. Bitte überprüfen Sie, ob die E-Mail-Anmeldedaten auf unserer Seite korrekt sind. Alternativ rufen Sie uns direkt unter {phone_number} an."
-    except (smtplib.SMTPConnectError, ConnectionRefusedError):
-        print("Fehler: Verbindung zum SMTP-Server fehlgeschlagen.")
-        return False, f"Entschuldigung, es gab ein Problem mit der Serververbindung. Möglicherweise ist der E-Mail-Server vorübergehend nicht erreichbar. Bitte rufen Sie uns direkt unter {phone_number} an."
-    except smtplib.SMTPException as e:
-        print(f"Ein SMTP-Fehler ist aufgetreten: {e}")
-        return False, f"Entschuldigung, es gab ein unbekanntes Problem beim Senden Ihrer Anfrage. Bitte rufen Sie uns direkt unter {phone_number} an."
+        return True
     except Exception as e:
-        print(f"Ein unerwarteter Fehler ist aufgetreten: {e}")
-        return False, f"Ein unerwarteter Fehler ist aufgetreten. Bitte rufen Sie uns direkt unter {phone_number} an."
+        print(f"Fehler beim Senden der E-Mail: {e}")
+        return False
 
 @app.route('/api/chat', methods=['POST'])
 def chat_handler():
@@ -99,7 +88,6 @@ def chat_handler():
 
         current_state = user_states[user_ip]["state"]
         response_text = faq_db['fallback']
-        new_state = current_state
 
         # Überprüfe den aktuellen Konversationsstatus
         if current_state == "initial":
@@ -109,7 +97,7 @@ def chat_handler():
             # Priorität für die Terminvereinbarung
             if any(keyword in user_message for keyword in ["termin", "buchen", "vereinbaren"]):
                 response_text = "Gerne. Wie lautet Ihr vollständiger Name?"
-                new_state = "waiting_for_name"
+                user_states[user_ip] = {"state": "waiting_for_name"}
             else:
                 for item in faq_db['fragen']:
                     keyword_set = set(item['keywords'])
@@ -123,7 +111,7 @@ def chat_handler():
         elif current_state == "waiting_for_name":
             user_states[user_ip]["name"] = user_message
             response_text = "Vielen Dank. Wie lautet Ihre E-Mail-Adresse?"
-            new_state = "waiting_for_email"
+            user_states[user_ip]["state"] = "waiting_for_email"
 
         elif current_state == "waiting_for_email":
             # Validierung der E-Mail-Adresse mit regulärem Ausdruck
@@ -131,15 +119,15 @@ def chat_handler():
             if re.match(email_regex, user_message):
                 user_states[user_ip]["email"] = user_message
                 response_text = "Alles klar. Welchen Service möchten Sie buchen (z.B. Haarschnitt, Färben, Bartpflege)?"
-                new_state = "waiting_for_service"
+                user_states[user_ip]["state"] = "waiting_for_service"
             else:
                 response_text = "Das scheint keine gültige E-Mail-Adresse zu sein. Bitte geben Sie eine korrekte E-Mail-Adresse ein."
-                new_state = "waiting_for_email"
+                # Bleibt im gleichen Zustand, damit der Benutzer es erneut versuchen kann.
         
         elif current_state == "waiting_for_service":
             user_states[user_ip]["service"] = user_message
             response_text = "Wann (Datum und Uhrzeit) würden Sie den Termin gerne wahrnehmen?"
-            new_state = "waiting_for_datetime"
+            user_states[user_ip]["state"] = "waiting_for_datetime"
 
         elif current_state == "waiting_for_datetime":
             user_states[user_ip]["date_time"] = user_message
@@ -154,7 +142,7 @@ def chat_handler():
                 f"Datum und Uhrzeit: {data.get('date_time', 'N/A')}\n\n"
                 f"Möchten Sie die Anfrage so absenden? Bitte antworten Sie mit 'Ja' oder 'Nein'."
             )
-            new_state = "waiting_for_confirmation"
+            user_states[user_ip]["state"] = "waiting_for_confirmation"
         
         elif current_state == "waiting_for_confirmation":
             # Verarbeitung der Bestätigung oder Ablehnung
@@ -166,27 +154,28 @@ def chat_handler():
                     "date_time": user_states[user_ip].get("date_time", "N/A"),
                 }
                 
-                success, response_text = send_appointment_request(request_data)
-                
-                if success:
-                    new_state = "initial"
+                if send_appointment_request(request_data):
+                    response_text = "Vielen Dank! Ihre Terminanfrage wurde erfolgreich übermittelt. Wir werden uns in Kürze bei Ihnen melden."
                 else:
-                    new_state = "waiting_for_confirmation"
+                    response_text = "Entschuldigung, es gab ein Problem beim Senden Ihrer Anfrage. Bitte rufen Sie uns direkt an."
                 
+                # Konversation beenden und Zustand zurücksetzen
+                user_states[user_ip]["state"] = "initial"
+            
             elif user_message in ["nein", "abbrechen", "falsch"]:
                 response_text = "Die Terminanfrage wurde abgebrochen. Falls Sie die Eingabe korrigieren möchten, beginnen Sie bitte erneut mit 'Termin vereinbaren'."
-                new_state = "initial"
+                # Konversation beenden und Zustand zurücksetzen
+                user_states[user_ip]["state"] = "initial"
             
             else:
                 response_text = "Bitte antworten Sie mit 'Ja' oder 'Nein'."
-                new_state = "waiting_for_confirmation"
+                # Bleibt im gleichen Zustand, damit der Benutzer es erneut versuchen kann.
         
-        user_states[user_ip]["state"] = new_state
-        return jsonify({"reply": response_text, "new_state": new_state})
+        return jsonify({"reply": response_text})
 
     except Exception as e:
         print(f"Ein Fehler ist aufgetreten: {e}")
-        return jsonify({"error": "Interner Serverfehler", "new_state": "initial"}), 500
+        return jsonify({"error": "Interner Serverfehler"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
