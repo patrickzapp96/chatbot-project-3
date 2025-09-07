@@ -68,7 +68,7 @@ async function sendMessage() {
     }
 }
 
-// Die addMessage-Funktion muss erweitert werden, um eine optionale Klasse zu akzeptieren
+// Die addMessage-Funktion wurde erweitert, um eine optionale Klasse zu akzeptieren
 function addMessage(text, sender, extraClass = null) {
     const chat = document.getElementById("chat-messages");
     const msgDiv = document.createElement("div");
@@ -90,6 +90,7 @@ function addMessage(text, sender, extraClass = null) {
     }
 
     const bubble = document.createElement("div");
+    bubble.classList.add("bubble"); // Wichtig: füge diese Klasse hinzu
     bubble.innerText = text;
     if (sender === "user") {
         msgDiv.appendChild(bubble);
