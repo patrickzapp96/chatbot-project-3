@@ -2,54 +2,84 @@ const toggleBtn = document.getElementById("chat-toggle");
 const chatWidget = document.getElementById("chat-widget");
 const closeBtn = document.getElementById("chat-close");
 const typingIndicator = document.getElementById("typing-indicator");
-const chatInput = document.getElementById("chat-input").querySelector("input");
+const chatInputContainer = document.getElementById("chat-input");
+const chatInput = document.getElementById("userMessage");
+
+// NEUE ELEMENTE
+const appointmentInputContainer = document.getElementById("appointment-input");
+const dateInput = document.getElementById("date-input");
+const timeInput = document.getElementById("time-input");
+const sendAppointmentBtn = document.getElementById("send-appointment-btn");
+
+let currentBotState = "initial"; // Variable, um den aktuellen Status zu speichern
 
 toggleBtn.addEventListener("click", () => {
-    // Wenn der Chat geöffnet wird...
     if (chatWidget.style.display === "none") {
         chatWidget.style.display = "flex";
         toggleBtn.style.display = "none";
         
-        // Füge die beiden Startnachrichten hinzu
-        // Optional: Kurze Verzögerung für einen realistischeren Effekt
         setTimeout(() => {
             addMessage("Es werden keine personenbezogenen Daten gespeichert.", "bot");
             setTimeout(() => {
                 addMessage("Terminanfragen hier möglich.", "bot");
                     setTimeout(() => {
                         addMessage("Wie kann ich Ihnen behilflich sein?", "bot");
-                }, 500); // 0.5 Sekunden Verzögerung 
-            }, 500); // 0.5 Sekunden Verzögerung
-        }, 300); // 0.3 Sekunden Verzögerung nach dem Öffnen
+                }, 500); 
+            }, 500); 
+        }, 300); 
     }
 });
 
 closeBtn.addEventListener("click", () => {
     chatWidget.style.display = "none";
     toggleBtn.style.display = "flex";
+    currentBotState = "initial"; // Zustand zurücksetzen
+    // Alle Eingabeelemente ausblenden und Standard-Input anzeigen
+    chatInputContainer.style.display = "flex";
+    appointmentInputContainer.style.display = "none";
 });
 
+// Event-Listener für das normale Textfeld
 chatInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
         sendMessage();
     }
 });
 
-async function sendMessage() {
-    const input = document.getElementById("userMessage");
-    const msg = input.value.trim();
+// NEUER Event-Listener für den Senden-Button des Terminformulars
+sendAppointmentBtn.addEventListener("click", () => {
+    const date = dateInput.value;
+    const time = timeInput.value;
+    // Führe eine grundlegende Validierung durch
+    if (date && time) {
+        // Formatiere die Nachricht, um sie an den Bot zu senden
+        const message = `${date} um ${time} Uhr`;
+        sendMessage(message);
+        // Blende die Formularfelder aus und zeige das normale Eingabefeld wieder an
+        appointmentInputContainer.style.display = "none";
+        chatInputContainer.style.display = "flex";
+    } else {
+        addMessage("Bitte geben Sie sowohl ein Datum als auch eine Uhrzeit ein.", "bot");
+    }
+});
+
+async function sendMessage(messageOverride = null) {
+    const msg = messageOverride || chatInput.value.trim();
     if (!msg) return;
 
+    // Nur das normale Textfeld leeren
+    if (!messageOverride) {
+        chatInput.value = "";
+    }
+    
     addMessage(msg, "user");
-    input.value = "";
-
     typingIndicator.style.display = "block";
-
+    
     try {
-        const res = await fetch("/api/chat", {
+        const res = await fetch("http://127.0.0.1:5000/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: msg })
+            body: JSON.stringify({ message: msg, state: currentBotState })
         });
 
         if (!res.ok) {
@@ -57,10 +87,22 @@ async function sendMessage() {
         }
 
         const data = await res.json();
-         // Füge eine Verzögerung von 500ms (0,5 Sekunden) hinzu
+        // Aktualisiere den Zustand basierend auf der Antwort des Bots
+        currentBotState = data.new_state; // Backend muss den neuen Zustand zurückgeben
+
         setTimeout(() => {
             addMessage(data.reply, "bot");
             typingIndicator.style.display = "none";
+
+            // Überprüfe, ob der Bot jetzt Datum und Uhrzeit benötigt
+            if (data.reply.includes("Datum und Uhrzeit")) {
+                 chatInputContainer.style.display = "none";
+                 appointmentInputContainer.style.display = "flex";
+            } else {
+                 chatInputContainer.style.display = "flex";
+                 appointmentInputContainer.style.display = "none";
+            }
+
         }, 500);
     } catch (error) {
         console.error("Fehler beim Senden der Nachricht:", error);
@@ -78,11 +120,10 @@ function addMessage(text, sender) {
     const avatar = document.createElement("div");
     avatar.classList.add("avatar");
 
-    // Emojis als Avatar setzen
     if (sender === "user") {
-        avatar.innerText = "🧍"; // Emoji für den Benutzer
+        avatar.innerText = "🧍"; 
     } else {
-        avatar.innerText = "🤖"; // Emoji für den Bot
+        avatar.innerText = "🤖"; 
     }
 
     const bubble = document.createElement("div");
@@ -95,10 +136,7 @@ function addMessage(text, sender) {
         msgDiv.appendChild(avatar);
         msgDiv.appendChild(bubble);
     }
-
+    
     chat.appendChild(msgDiv);
-    chat.scrollTop = chat.scrollHeight;
+    chat.scrollTop = chat.scrollHeight; // Scrollt automatisch nach unten
 }
-
-
-
