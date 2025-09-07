@@ -3,11 +3,15 @@ from flask_cors import CORS
 import os
 import smtplib
 from email.message import EmailMessage
+import re # Importiere das re-Modul für reguläre Ausdrücke
 
 app = Flask(__name__)
 CORS(app)
 
-# FAQ-Datenbank (unverändert)
+# Globale Variable zur Speicherung des Konversationsstatus
+user_states = {}
+
+# FAQ-Datenbank
 faq_db = {
     "fragen": [
         # Deine vorhandenen FAQ-Einträge...
@@ -31,13 +35,9 @@ faq_db = {
         {"keywords": ["kinder", "kids", "jungen", "mädchen"], "antwort": "Natürlich schneiden wir auch Kinderhaare. Der Preis für einen Kinderhaarschnitt startet ab 15 €."},
         {"keywords": ["hygiene", "corona", "masken", "sicherheit"], "antwort": "Ihre Gesundheit liegt uns am Herzen. Wir achten auf höchste Hygienestandards und desinfizieren regelmäßig unsere Arbeitsplätze."},
         {"keywords": ["kontakt", "telefon", "nummer", "anrufen"], "antwort": "Sie erreichen uns telefonisch unter 030-123456 oder per E-Mail unter info@friseur-muster.de."}
-        # Fügen Sie hier die restlichen FAQ-Einträge ein.
     ],
     "fallback": "Das weiß ich leider nicht. Bitte rufen Sie uns direkt unter 030-123456 an, wir helfen Ihnen gerne persönlich weiter."
 }
-
-# Temporärer Speicher für den Konversationsstatus der Benutzer
-user_states = {}
 
 def send_appointment_request(request_data):
     """
@@ -91,7 +91,6 @@ def chat_handler():
 
         # Überprüfe den aktuellen Konversationsstatus
         if current_state == "initial":
-            # Neue Logik: Finde die am besten passende Antwort basierend auf Keywords
             user_words = set(user_message.split())
             best_match_score = 0
             
@@ -102,7 +101,6 @@ def chat_handler():
             else:
                 for item in faq_db['fragen']:
                     keyword_set = set(item['keywords'])
-                    # Berechnung der Schnittmenge
                     intersection = user_words.intersection(keyword_set)
                     score = len(intersection)
                     
@@ -116,10 +114,16 @@ def chat_handler():
             user_states[user_ip]["state"] = "waiting_for_email"
 
         elif current_state == "waiting_for_email":
-            user_states[user_ip]["email"] = user_message
-            response_text = "Alles klar. Welchen Service möchten Sie buchen (z.B. Haarschnitt, Färben, Bartpflege)?"
-            user_states[user_ip]["state"] = "waiting_for_service"
-
+            # Validierung der E-Mail-Adresse mit regulärem Ausdruck
+            email_regex = r'^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$'
+            if re.match(email_regex, user_message):
+                user_states[user_ip]["email"] = user_message
+                response_text = "Alles klar. Welchen Service möchten Sie buchen (z.B. Haarschnitt, Färben, Bartpflege)?"
+                user_states[user_ip]["state"] = "waiting_for_service"
+            else:
+                response_text = "Das scheint keine gültige E-Mail-Adresse zu sein. Bitte geben Sie eine korrekte E-Mail-Adresse ein."
+                # Bleibt im gleichen Zustand, damit der Benutzer es erneut versuchen kann.
+        
         elif current_state == "waiting_for_service":
             user_states[user_ip]["service"] = user_message
             response_text = "Wann (Datum und Uhrzeit) würden Sie den Termin gerne wahrnehmen?"
@@ -128,21 +132,45 @@ def chat_handler():
         elif current_state == "waiting_for_datetime":
             user_states[user_ip]["date_time"] = user_message
             
-            # Sammle alle Daten und sende die Anfrage
-            request_data = {
-                "name": user_states[user_ip].get("name", "N/A"),
-                "email": user_states[user_ip].get("email", "N/A"),
-                "service": user_states[user_ip].get("service", "N/A"),
-                "date_time": user_states[user_ip].get("date_time", "N/A"),
-            }
+            # Sammle alle Daten und erstelle die Bestätigungsnachricht
+            data = user_states[user_ip]
+            response_text = (
+                f"Bitte überprüfen Sie Ihre Angaben:\n"
+                f"Name: {data.get('name', 'N/A')}\n"
+                f"E-Mail: {data.get('email', 'N/A')}\n"
+                f"Service: {data.get('service', 'N/A')}\n"
+                f"Datum und Uhrzeit: {data.get('date_time', 'N/A')}\n\n"
+                f"Möchten Sie die Anfrage so absenden? Bitte antworten Sie mit 'Ja' oder 'Nein'."
+            )
+            user_states[user_ip]["state"] = "waiting_for_confirmation"
+        
+        elif current_state == "waiting_for_confirmation":
+            # Verarbeitung der Bestätigung oder Ablehnung
+            if user_message in ["ja", "ja, das stimmt", "bestätigen", "ja bitte"]:
+                request_data = {
+                    "name": user_states[user_ip].get("name", "N/A"),
+                    "email": user_states[user_ip].get("email", "N/A"),
+                    "service": user_states[user_ip].get("service", "N/A"),
+                    "date_time": user_states[user_ip].get("date_time", "N/A"),
+                }
+                
+                if send_appointment_request(request_data):
+                    response_text = "Vielen Dank! Ihre Terminanfrage wurde erfolgreich übermittelt. Wir werden uns in Kürze bei Ihnen melden."
+                else:
+                    response_text = "Entschuldigung, es gab ein Problem beim Senden Ihrer Anfrage. Bitte rufen Sie uns direkt an."
+                
+                # Konversation beenden und Zustand zurücksetzen
+                user_states[user_ip]["state"] = "initial"
             
-            if send_appointment_request(request_data):
-                response_text = "Vielen Dank! Ihre Terminanfrage wurde erfolgreich übermittelt. Wir werden uns in Kürze bei Ihnen melden."
+            elif user_message in ["nein", "abbrechen", "falsch"]:
+                response_text = "Die Terminanfrage wurde abgebrochen. Falls Sie die Eingabe korrigieren möchten, beginnen Sie bitte erneut mit 'Termin vereinbaren'."
+                # Konversation beenden und Zustand zurücksetzen
+                user_states[user_ip]["state"] = "initial"
+            
             else:
-                response_text = "Entschuldigung, es gab ein Problem beim Senden Ihrer Anfrage. Bitte rufen Sie uns direkt an."
-            
-            user_states[user_ip]["state"] = "initial" # Konversation beenden und Zustand zurücksetzen
-
+                response_text = "Bitte antworten Sie mit 'Ja' oder 'Nein'."
+                # Bleibt im gleichen Zustand, damit der Benutzer es erneut versuchen kann.
+        
         return jsonify({"reply": response_text})
 
     except Exception as e:
