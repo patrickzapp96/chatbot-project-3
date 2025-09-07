@@ -13,28 +13,27 @@ toggleBtn.addEventListener("click", () => {
         // Füge die beiden Startnachrichten hinzu
         // Optional: Kurze Verzögerung für einen realistischeren Effekt
         setTimeout(() => {
-            addMessage("Es werden keine personenbezogenen Daten gespeichert.", "bot");
+            // Hinzufügen einer neuen Klasse 'bot-red-message' für die rote Farbe
+            addMessage("Es werden keine personenbezogenen Daten gespeichert.", "bot", "bot-red-message");
             setTimeout(() => {
-                addMessage("Terminanfragen hier möglich.", "bot");
+                // Hinzufügen einer neuen Klasse 'bot-red-message' für die rote Farbe
+                addMessage("Terminanfragen hier möglich.", "bot", "bot-red-message");
                     setTimeout(() => {
                         addMessage("Wie kann ich Ihnen behilflich sein?", "bot");
-                }, 500); // 0.5 Sekunden Verzögerung 
+                    }, 500); // 0.5 Sekunden Verzögerung 
             }, 500); // 0.5 Sekunden Verzögerung
         }, 300); // 0.3 Sekunden Verzögerung nach dem Öffnen
     }
 });
-
 closeBtn.addEventListener("click", () => {
     chatWidget.style.display = "none";
     toggleBtn.style.display = "flex";
 });
-
 chatInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
         sendMessage();
     }
 });
-
 async function sendMessage() {
     const input = document.getElementById("userMessage");
     const msg = input.value.trim();
@@ -51,13 +50,12 @@ async function sendMessage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ message: msg })
         });
-
         if (!res.ok) {
             throw new Error(`Serverantwort war nicht okay: ${res.status}`);
         }
 
         const data = await res.json();
-         // Füge eine Verzögerung von 500ms (0,5 Sekunden) hinzu
+        // Füge eine Verzögerung von 500ms (0,5 Sekunden) hinzu
         setTimeout(() => {
             addMessage(data.reply, "bot");
             typingIndicator.style.display = "none";
@@ -70,10 +68,16 @@ async function sendMessage() {
     }
 }
 
-function addMessage(text, sender) {
+// Die addMessage-Funktion muss erweitert werden, um eine optionale Klasse zu akzeptieren
+function addMessage(text, sender, extraClass = null) {
     const chat = document.getElementById("chat-messages");
     const msgDiv = document.createElement("div");
     msgDiv.classList.add("message", sender);
+    
+    // Füge die zusätzliche Klasse hinzu, falls vorhanden
+    if (extraClass) {
+        msgDiv.classList.add(extraClass);
+    }
 
     const avatar = document.createElement("div");
     avatar.classList.add("avatar");
@@ -87,7 +91,6 @@ function addMessage(text, sender) {
 
     const bubble = document.createElement("div");
     bubble.innerText = text;
-
     if (sender === "user") {
         msgDiv.appendChild(bubble);
         msgDiv.appendChild(avatar);
@@ -99,6 +102,3 @@ function addMessage(text, sender) {
     chat.appendChild(msgDiv);
     chat.scrollTop = chat.scrollHeight;
 }
-
-
-
