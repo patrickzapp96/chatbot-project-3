@@ -3,7 +3,7 @@ from flask_cors import CORS
 import os
 import smtplib
 from email.message import EmailMessage
-import re
+import re # Importiere das re-Modul für reguläre Ausdrücke
 
 app = Flask(__name__)
 CORS(app)
@@ -14,6 +14,7 @@ user_states = {}
 # FAQ-Datenbank
 faq_db = {
     "fragen": [
+        # Deine vorhandenen FAQ-Einträge...
         {"keywords": ["öffnungszeiten", "wann geöffnet", "wann offen", "arbeitszeit"], "antwort": "Wir sind Montag–Freitag von 9:00 bis 18:00 Uhr und Samstag von 9:00 bis 14:00 Uhr für Sie da. Sonntag ist Ruhetag."},
         {"keywords": ["termin", "vereinbaren", "buchen", "reservieren", "online"], "antwort": "Wenn Sie einen Termin vereinbaren möchten, geben Sie bitte zuerst Ihren vollständigen Namen ein."},
         {"keywords": ["adresse", "wo", "anschrift", "finden", "lage"], "antwort": "Unsere Adresse lautet: Musterstraße 12, 10115 Berlin. Wir sind zentral und gut erreichbar."},
@@ -170,12 +171,11 @@ def chat_handler():
                 response_text = "Bitte antworten Sie mit 'Ja' oder 'Nein'."
                 # Bleibt im gleichen Zustand, damit der Benutzer es erneut versuchen kann.
         
-        # Geänderte Rückgabe: Sende den neuen Zustand an das Frontend zurück
-        return jsonify({"reply": response_text, "new_state": user_states[user_ip]["state"]})
+        return jsonify({"reply": response_text})
 
     except Exception as e:
         print(f"Ein Fehler ist aufgetreten: {e}")
-        return jsonify({"error": "Interner Serverfehler", "new_state": "initial"}), 500
+        return jsonify({"error": "Interner Serverfehler"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
