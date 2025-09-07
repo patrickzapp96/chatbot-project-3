@@ -23,7 +23,7 @@ faq_db = {
         {"keywords": ["parkplatz", "parken", "auto", "stellplatz"], "antwort": "Vor unserem Salon befinden sich kostenlose Parkplätze. Alternativ erreichen Sie uns auch gut mit den öffentlichen Verkehrsmitteln."},
         {"keywords": ["waschen", "föhnen", "styling", "legen"], "antwort": "Natürlich – wir bieten Waschen, Föhnen und individuelles Styling an. Perfekt auch für Events oder Fotoshootings."},
         {"keywords": ["färben", "farbe", "farben", "strähnen", "blondieren", "haartönung"], "antwort": "Wir färben und tönen Haare in allen Farben, inklusive Strähnen, Balayage und Blondierungen. Unsere Stylisten beraten Sie individuell."},
-        {"keywords": ["dauerwelle", "dauerwellen", "locken", "lockenfrisur, "lockenfrisuren"], "antwort": "Ja, wir bieten auch Dauerwellen und Locken-Stylings an."},
+        {"keywords": ["dauerwelle", "dauerwellen", "locken", "lockenfrisur"], "antwort": "Ja, wir bieten auch Dauerwellen und Locken-Stylings an."},
         {"keywords": ["hochzeit", "brautfrisur", "brautfrisuren", "hochsteckfrisur"], "antwort": "Wir stylen wunderschöne Braut- und Hochsteckfrisuren. Am besten buchen Sie hierfür rechtzeitig einen Probetermin."},
         {"keywords": ["bart", "rasur", "bartpflege"], "antwort": "Für Herren bieten wir auch Bartpflege und Rasuren an."},
         {"keywords": ["haarpflege", "produkte", "verkaufen", "shampoo", "pflege"], "antwort": "Wir verwenden hochwertige Markenprodukte und verkaufen auch Haarpflegeprodukte, Shampoos und Stylingprodukte im Salon."},
@@ -179,3 +179,4 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
