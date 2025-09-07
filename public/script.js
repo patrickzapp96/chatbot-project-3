@@ -79,6 +79,7 @@ async function sendMessage(messageOverride = null) {
         const res = await fetch("http://127.0.0.1:5000/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            // WICHTIG: Füge hier den 'state' in das JSON-Objekt ein
             body: JSON.stringify({ message: msg, state: currentBotState })
         });
 
@@ -87,8 +88,8 @@ async function sendMessage(messageOverride = null) {
         }
 
         const data = await res.json();
-        // Aktualisiere den Zustand basierend auf der Antwort des Bots
-        currentBotState = data.new_state; // Backend muss den neuen Zustand zurückgeben
+        // WICHTIG: Aktualisiere den globalen Zustand des Bots
+        currentBotState = data.new_state;
 
         setTimeout(() => {
             addMessage(data.reply, "bot");
