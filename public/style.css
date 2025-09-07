@@ -85,6 +85,13 @@
     background: white;
     border: 1px solid #ddd;
 }
+
+/* NEUE CSS-REGEL für rote Bot-Nachrichten */
+.bot-red-message .bubble {
+    color: red;
+    font-weight: bold; /* Optional: Macht den Text fetter */
+}
+
 .avatar {
     width: 24px;
     height: 24px;
