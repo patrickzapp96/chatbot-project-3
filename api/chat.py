@@ -99,6 +99,7 @@ def chat_handler():
 
         current_state = user_states[user_ip]["state"]
         response_text = faq_db['fallback']
+        new_state = current_state
 
         # Überprüfe den aktuellen Konversationsstatus
         if current_state == "initial":
@@ -108,7 +109,7 @@ def chat_handler():
             # Priorität für die Terminvereinbarung
             if any(keyword in user_message for keyword in ["termin", "buchen", "vereinbaren"]):
                 response_text = "Gerne. Wie lautet Ihr vollständiger Name?"
-                user_states[user_ip] = {"state": "waiting_for_name"}
+                new_state = "waiting_for_name"
             else:
                 for item in faq_db['fragen']:
                     keyword_set = set(item['keywords'])
@@ -122,7 +123,7 @@ def chat_handler():
         elif current_state == "waiting_for_name":
             user_states[user_ip]["name"] = user_message
             response_text = "Vielen Dank. Wie lautet Ihre E-Mail-Adresse?"
-            user_states[user_ip]["state"] = "waiting_for_email"
+            new_state = "waiting_for_email"
 
         elif current_state == "waiting_for_email":
             # Validierung der E-Mail-Adresse mit regulärem Ausdruck
@@ -130,15 +131,15 @@ def chat_handler():
             if re.match(email_regex, user_message):
                 user_states[user_ip]["email"] = user_message
                 response_text = "Alles klar. Welchen Service möchten Sie buchen (z.B. Haarschnitt, Färben, Bartpflege)?"
-                user_states[user_ip]["state"] = "waiting_for_service"
+                new_state = "waiting_for_service"
             else:
                 response_text = "Das scheint keine gültige E-Mail-Adresse zu sein. Bitte geben Sie eine korrekte E-Mail-Adresse ein."
-                # Bleibt im gleichen Zustand, damit der Benutzer es erneut versuchen kann.
+                new_state = "waiting_for_email"
         
         elif current_state == "waiting_for_service":
             user_states[user_ip]["service"] = user_message
             response_text = "Wann (Datum und Uhrzeit) würden Sie den Termin gerne wahrnehmen?"
-            user_states[user_ip]["state"] = "waiting_for_datetime"
+            new_state = "waiting_for_datetime"
 
         elif current_state == "waiting_for_datetime":
             user_states[user_ip]["date_time"] = user_message
@@ -153,7 +154,7 @@ def chat_handler():
                 f"Datum und Uhrzeit: {data.get('date_time', 'N/A')}\n\n"
                 f"Möchten Sie die Anfrage so absenden? Bitte antworten Sie mit 'Ja' oder 'Nein'."
             )
-            user_states[user_ip]["state"] = "waiting_for_confirmation"
+            new_state = "waiting_for_confirmation"
         
         elif current_state == "waiting_for_confirmation":
             # Verarbeitung der Bestätigung oder Ablehnung
@@ -168,25 +169,24 @@ def chat_handler():
                 success, response_text = send_appointment_request(request_data)
                 
                 if success:
-                    user_states[user_ip]["state"] = "initial"
+                    new_state = "initial"
+                else:
+                    new_state = "waiting_for_confirmation"
                 
-                # Wenn es ein Fehler war, behält der Bot den Zustand "waiting_for_confirmation" bei, damit der Kunde die Möglichkeit hat, es erneut zu versuchen.
-                
-            
             elif user_message in ["nein", "abbrechen", "falsch"]:
                 response_text = "Die Terminanfrage wurde abgebrochen. Falls Sie die Eingabe korrigieren möchten, beginnen Sie bitte erneut mit 'Termin vereinbaren'."
-                # Konversation beenden und Zustand zurücksetzen
-                user_states[user_ip]["state"] = "initial"
+                new_state = "initial"
             
             else:
                 response_text = "Bitte antworten Sie mit 'Ja' oder 'Nein'."
-                # Bleibt im gleichen Zustand, damit der Benutzer es erneut versuchen kann.
+                new_state = "waiting_for_confirmation"
         
-        return jsonify({"reply": response_text})
+        user_states[user_ip]["state"] = new_state
+        return jsonify({"reply": response_text, "new_state": new_state})
 
     except Exception as e:
         print(f"Ein Fehler ist aufgetreten: {e}")
-        return jsonify({"error": "Interner Serverfehler"}), 500
+        return jsonify({"error": "Interner Serverfehler", "new_state": "initial"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
