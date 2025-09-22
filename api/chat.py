@@ -326,7 +326,7 @@ def chat_handler():
                 return jsonify({"reply": best_match_answer})
 
         # --- Terminbuchungsablauf ---
-       elif current_state == "waiting_for_confirmation_appointment":
+       elif current_state == "waiting_for_confirmation_start":
             if user_message in ["ja", "ja, das stimmt", "bestätigen", "ja bitte"]:
                 response_text = "Gerne. Wie lautet Ihr vollständiger Name?"
                 user_states[user_ip]["state"] = "waiting_for_name"
@@ -416,4 +416,5 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
