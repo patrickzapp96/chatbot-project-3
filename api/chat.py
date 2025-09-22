@@ -326,17 +326,16 @@ def chat_handler():
                 return jsonify({"reply": best_match_answer})
 
         # --- Terminbuchungsablauf ---
-       elif current_state == "waiting_for_confirmation_start":
-            if user_message in ["ja", "ja, das stimmt", "bestätigen", "ja bitte"]:
-                response_text = "Gerne. Wie lautet Ihr vollständiger Name?"
+      elif current_state == "waiting_for_confirmation_start":
+            if user_message.lower() in ["ja", "ja, das stimmt", "bestätigen", "ja bitte"]:
                 user_states[user_ip]["state"] = "waiting_for_name"
-            elif user_message in ["nein", "abbrechen", "falsch"]:
-                response_text = "Die Terminanfrage wurde abgebrochen. Falls Sie die Eingabe korrigieren möchten, beginnen Sie bitte erneut mit 'Termin vereinbaren'."
-                user_states[user_ip]["state"] = "initial"
+                return jsonify({"reply": "Gerne. Wie lautet Ihr vollständiger Name?"})
             else:
-                response_text = "Bitte antworten Sie mit 'Ja' oder 'Nein'."
+                user_states[user_ip]["state"] = "initial"
+                return jsonify({"reply": "Die Terminanfrage wurde abgebrochen. Falls Sie die Eingabe korrigieren möchten, beginnen Sie bitte erneut mit 'Termin vereinbaren."})
 
         elif current_state == "waiting_for_name":
+            # Hier geht der Code davon aus, dass die Eingabe der Name ist.
             user_states[user_ip]["name"] = user_message
             user_states[user_ip]["state"] = "waiting_for_email"
             return jsonify({"reply": "Vielen Dank. Wie lautet Ihre E-Mail-Adresse?"})
@@ -416,5 +415,6 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
