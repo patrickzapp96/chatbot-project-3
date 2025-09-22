@@ -3,73 +3,45 @@ const chatWidget = document.getElementById("chat-widget");
 const closeBtn = document.getElementById("chat-close");
 const typingIndicator = document.getElementById("typing-indicator");
 const chatInput = document.getElementById("chat-input").querySelector("input");
+const sendButton = document.getElementById("chat-input").querySelector("button");
 
+// Event-Listener für das Öffnen/Schließen des Chat-Widgets
 toggleBtn.addEventListener("click", () => {
-    // Wenn der Chat geöffnet wird...
     if (chatWidget.style.display === "none") {
         chatWidget.style.display = "flex";
         toggleBtn.style.display = "none";
         
-        // Füge die beiden Startnachrichten hinzu
-        // Optional: Kurze Verzögerung für einen realistischeren Effekt
+        // Startnachrichten hinzufügen
         setTimeout(() => {
-            // Hinzufügen einer neuen Klasse 'bot-red-message' für die rote Farbe
             addMessage("Es werden keine personenbezogenen Daten gespeichert.", "bot", "bot-red-message");
             setTimeout(() => {
-                // Hinzufügen einer neuen Klasse 'bot-red-message' für die rote Farbe
-                addMessage("Terminanfragen hier möglich.", "bot", "bot-red-message");
-                    setTimeout(() => {
-                        addMessage("Wie kann ich Ihnen behilflich sein?", "bot");
-                    }, 500); // 0.5 Sekunden Verzögerung 
-            }, 500); // 0.5 Sekunden Verzögerung
-        }, 300); // 0.3 Sekunden Verzögerung nach dem Öffnen
+                addMessage("Terminanfragen hier möglich.", "bot", "bot-green-message");
+                setTimeout(() => {
+                    addMessage("Wie kann ich Ihnen behilflich sein?", "bot");
+                }, 500); 
+            }, 500);
+        }, 300);
     }
 });
+
 closeBtn.addEventListener("click", () => {
     chatWidget.style.display = "none";
     toggleBtn.style.display = "flex";
 });
+
+// Event-Listener für das Senden der Nachricht mit Enter
 chatInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
         sendMessage();
     }
 });
-async function sendMessage() {
-    const input = document.getElementById("userMessage");
-    const msg = input.value.trim();
-    if (!msg) return;
 
-    addMessage(msg, "user");
-    input.value = "";
+// Event-Listener für das Senden der Nachricht mit dem Button
+sendButton.addEventListener("click", sendMessage);
 
-    typingIndicator.style.display = "block";
 
-    try {
-        const res = await fetch("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: msg })
-        });
-        if (!res.ok) {
-            throw new Error(`Serverantwort war nicht okay: ${res.status}`);
-        }
-
-        const data = await res.json();
-        // Füge eine Verzögerung von 500ms (0,5 Sekunden) hinzu
-        setTimeout(() => {
-            addMessage(data.reply, "bot");
-            typingIndicator.style.display = "none";
-        }, 500);
-    } catch (error) {
-        console.error("Fehler beim Senden der Nachricht:", error);
-        addMessage("Entschuldigung, ich kann gerade nicht antworten.", "bot");
-    } finally {
-        typingIndicator.style.display = "none";
-    }
-}
-
-// Die addMessage-Funktion wurde erweitert, um eine optionale Klasse zu akzeptieren
-function addMessage(text, sender, extraClass = null) {
+// Funktion zum Hinzufügen einer Nachricht zum Chat-Fenster
+function addMessage(htmlContent, sender, extraClass = null) {
     const chat = document.getElementById("chat-messages");
     const msgDiv = document.createElement("div");
     msgDiv.classList.add("message", sender);
@@ -81,17 +53,12 @@ function addMessage(text, sender, extraClass = null) {
 
     const avatar = document.createElement("div");
     avatar.classList.add("avatar");
-
-    // Emojis als Avatar setzen
-    if (sender === "user") {
-        avatar.innerText = "🧍"; // Emoji für den Benutzer
-    } else {
-        avatar.innerText = "🤖"; // Emoji für den Bot
-    }
+    avatar.innerText = (sender === "user") ? "🧍" : "🤖"; 
 
     const bubble = document.createElement("div");
-    bubble.classList.add("bubble"); // Wichtig: füge diese Klasse hinzu
-    bubble.innerText = text;
+    bubble.classList.add("bubble"); 
+    bubble.innerHTML = htmlContent;
+    
     if (sender === "user") {
         msgDiv.appendChild(bubble);
         msgDiv.appendChild(avatar);
@@ -99,7 +66,74 @@ function addMessage(text, sender, extraClass = null) {
         msgDiv.appendChild(avatar);
         msgDiv.appendChild(bubble);
     }
-
+    
     chat.appendChild(msgDiv);
+    // Scrolle zum neuesten Element
     chat.scrollTop = chat.scrollHeight;
+}
+
+
+// --- Wichtige Änderungen hier: sendMessage-Funktion verarbeitet die JSON-Antwort ---
+async function sendMessage() {
+    const userMessage = chatInput.value.trim();
+    if (!userMessage) return;
+
+    addMessage(userMessage, "user");
+    chatInput.value = "";
+    typingIndicator.style.display = "block";
+
+    try {
+        const response = await fetch("https://chatbot-app.vercel.app/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: userMessage }),
+        });
+
+        const data = await response.json();
+        
+        setTimeout(() => {
+            // Überprüfe den "type"-Wert in der JSON-Antwort
+            if (data.type === "calendar_slots") {
+                let htmlContent = 'Bitte wählen Sie einen freien Termin: <br>';
+                data.slots.forEach(slot => {
+                    htmlContent += `<button class="slot-button" onclick="selectSlot('${slot.start}')">${slot.display}</button>`;
+                });
+                addMessage(htmlContent, 'bot');
+            } else {
+                addMessage(data.reply, "bot");
+            }
+            typingIndicator.style.display = "none";
+        }, 500);
+    } catch (error) {
+        console.error("Fehler beim Senden der Nachricht:", error);
+        addMessage("Entschuldigung, ich kann gerade nicht antworten.", "bot");
+    } finally {
+        typingIndicator.style.display = "none";
+    }
+}
+
+// --- Neue Funktion zum Senden des ausgewählten Termins ---
+async function selectSlot(isoDate) {
+    addMessage(isoDate, "user"); 
+    typingIndicator.style.display = "block";
+    
+    try {
+        const response = await fetch("https://chatbot-app.vercel.app/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: isoDate }),
+        });
+
+        const data = await response.json();
+        
+        setTimeout(() => {
+            addMessage(data.reply, "bot");
+            typingIndicator.style.display = "none";
+        }, 500);
+    } catch (error) {
+        console.error("Fehler beim Senden des Termins:", error);
+        addMessage("Entschuldigung, ich kann diesen Termin gerade nicht buchen.", "bot");
+    } finally {
+        typingIndicator.style.display = "none";
+    }
 }
