@@ -83,7 +83,7 @@ async function sendMessage() {
     typingIndicator.style.display = "block";
 
     try {
-        const response = await fetch("https://chatbot-app.vercel.app/api/chat", {
+        const response = await fetch("https://chatbot-project-3.vercel.app/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ message: userMessage }),
@@ -137,4 +137,5 @@ async function selectSlot(isoDate) {
         typingIndicator.style.display = "none";
     }
 }
+
 
