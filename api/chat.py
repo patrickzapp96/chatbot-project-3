@@ -73,8 +73,8 @@ faq_db = {
             "id": 8,
             "kategorie": "Services",
             "titel": "Haare färben",
-            "keywords": ["färben", "farbe", "farben", "strähnen", "blondieren", "haartönung"],
-            "antwort": "Wir färben und tönen Haare in allen Farben, inklusive Strähnen, Balayage und Blondierungen. Unsere Stylisten beraten Sie individuell."
+            "keywords": ["färben", "farbe", "farben", "strähnchen", "blondieren", "haartönung"],
+            "antwort": "Wir färben und tönen Haare in allen Farben, inklusive Strähnchen, Balayage und Blondierungen. Unsere Stylisten beraten Sie individuell."
         },
         {
             "id": 9,
@@ -306,7 +306,7 @@ def chat_handler():
         # Logik für die Terminbuchung
         if current_state == "initial":
             if any(keyword in user_message for keyword in ["termin buchen", "termin vereinbaren", "termin ausmachen", "termin reservieren"]):
-                user_states[user_ip] = {"state": "waiting_for_name"}
+                user_states[user_ip] = {"state": "waiting_for_confirmation_start"}
                 return jsonify({"reply": "Möchten Sie einen Termin vereinbaren? Bitte antworten Sie mit 'Ja' oder 'Nein'."})
             else:
                 cleaned_message = re.sub(r'[^\w\s]', '', user_message)
@@ -326,16 +326,15 @@ def chat_handler():
                 return jsonify({"reply": best_match_answer})
 
         # --- Terminbuchungsablauf ---
-      elif current_state == "waiting_for_confirmation_start":
+        elif current_state == "waiting_for_confirmation_start":
             if user_message.lower() in ["ja", "ja, das stimmt", "bestätigen", "ja bitte"]:
                 user_states[user_ip]["state"] = "waiting_for_name"
                 return jsonify({"reply": "Gerne. Wie lautet Ihr vollständiger Name?"})
             else:
                 user_states[user_ip]["state"] = "initial"
-                return jsonify({"reply": "Die Terminanfrage wurde abgebrochen. Falls Sie die Eingabe korrigieren möchten, beginnen Sie bitte erneut mit 'Termin vereinbaren."})
+                return jsonify({"reply": "Die Terminanfrage wurde abgebrochen."})
 
         elif current_state == "waiting_for_name":
-            # Hier geht der Code davon aus, dass die Eingabe der Name ist.
             user_states[user_ip]["name"] = user_message
             user_states[user_ip]["state"] = "waiting_for_email"
             return jsonify({"reply": "Vielen Dank. Wie lautet Ihre E-Mail-Adresse?"})
@@ -357,7 +356,6 @@ def chat_handler():
                 available_slots = get_available_slots(calendar_service)
                 if available_slots:
                     user_states[user_ip]["state"] = "waiting_for_slot_selection"
-                    # Hier wird die neue JSON-Struktur für das Frontend gesendet
                     return jsonify({"type": "calendar_slots", "slots": available_slots})
                 else:
                     user_states[user_ip]["state"] = "initial"
@@ -367,7 +365,6 @@ def chat_handler():
                 return jsonify({"reply": "Entschuldigung, es gab ein Problem beim Zugriff auf den Kalender. Bitte rufen Sie uns direkt an unter 030-123456."})
         
         elif current_state == "waiting_for_slot_selection":
-            # Der Benutzer schickt hier die vom Frontend übermittelte ISO-8601-Zeit
             user_states[user_ip]["date_time_iso"] = user_message
             data = user_states[user_ip]
             response_text = (
@@ -415,6 +412,3 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
