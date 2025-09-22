@@ -326,12 +326,15 @@ def chat_handler():
                 return jsonify({"reply": best_match_answer})
 
         # --- Terminbuchungsablauf ---
-        elif current_state == "waiting_for_name":
-            if user_message.lower() in ["ja", "ja, das stimmt", "bestätigen", "ja bitte"]:
-                return jsonify({"reply": "Gerne. Wie lautet Ihr vollständiger Name?"})
-            else:
+       elif current_state == "waiting_for_confirmation_appointment":
+            if user_message in ["ja", "ja, das stimmt", "bestätigen", "ja bitte"]:
+                response_text = "Gerne. Wie lautet Ihr vollständiger Name?"
+                user_states[user_ip]["state"] = "waiting_for_name"
+            elif user_message in ["nein", "abbrechen", "falsch"]:
+                response_text = "Die Terminanfrage wurde abgebrochen. Falls Sie die Eingabe korrigieren möchten, beginnen Sie bitte erneut mit 'Termin vereinbaren'."
                 user_states[user_ip]["state"] = "initial"
-                return jsonify({"reply": "Die Terminanfrage wurde abgebrochen. Falls Sie die Eingabe korrigieren möchten, beginnen Sie bitte erneut mit 'Termin vereinbaren'."})
+            else:
+                response_text = "Bitte antworten Sie mit 'Ja' oder 'Nein'."
 
         elif current_state == "waiting_for_name":
             user_states[user_ip]["name"] = user_message
@@ -413,3 +416,4 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
