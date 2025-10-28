@@ -220,23 +220,29 @@ def get_calendar_service():
 
 def create_calendar_event(service, name, email, service_type, start_time_iso, duration_minutes=60):
     """
-    Erstellt einen neuen Termin im Google Kalender und sendet eine Einladung mit .ics-Anhang 
-    an den Inhaber und den Kunden.
+    Erstellt einen neuen Termin im Google Kalender, handhabt robust das Datum/Zeit-Format 
+    und sendet eine Einladung mit .ics-Anhang an den Inhaber und den Kunden.
     """
     try:
-        owner_email = "patrick.zapp96@gmail.com" 
+        # Platzhalter: Bitte durch die ECHTE Inhaber-E-Mail-Adresse ersetzen!
+        owner_email = "inhaber@echte-domain.de" 
         
-        # Zeitberechnung
-        start_time = datetime.fromisoformat(start_time_iso.replace('Z', '+00:00'))
-        end_time = start_time + timedelta(minutes=duration_minutes)
-        end_time_iso = end_time.isoformat().replace('+00:00', 'Z')
-        
+        # NEU: Robuste Zeitbehandlung
+        # Parst den ISO-String (z.B. 2025-10-28T09:00:00Z) als UTC und entfernt die Zeitzoneninfo
+        start_dt_utc = datetime.fromisoformat(start_time_iso.replace('Z', '+00:00')).replace(tzinfo=None)
+        end_dt_utc = start_dt_utc + timedelta(minutes=duration_minutes)
+
+        # Konvertiert zurück in das von Google bevorzugte Format (mit 'Z' für UTC)
+        start_time_api = start_dt_utc.isoformat() + 'Z'
+        end_time_api = end_dt_utc.isoformat() + 'Z'
+
         event = {
             'summary': f"{service_type} - Termin mit {name}",
             'description': f"*** Neuer Online-Termin ***\n\nKunde: {name}\nE-Mail: {email}\nDienstleistung: {service_type}\n\nTermin gebucht über Chatbot.",
             'location': 'Musterstraße 12, 10115 Berlin', 
-            'start': {'dateTime': start_time_iso, 'timeZone': 'Europe/Berlin'},
-            'end': {'dateTime': end_time_iso, 'timeZone': 'Europe/Berlin'},
+            # Wichtig: Zeitzone als 'UTC' festlegen, da die Zeiten als UTC gesendet werden
+            'start': {'dateTime': start_time_api, 'timeZone': 'UTC'}, 
+            'end': {'dateTime': end_time_api, 'timeZone': 'UTC'},     
             'attendees': [
                 {'email': owner_email},          # Inhaber-E-Mail (erhält Benachrichtigung)
                 {'email': email, 'responseStatus': 'tentative'} # Kunden-E-Mail (erhält Benachrichtigung)
@@ -298,7 +304,8 @@ def get_available_slots(service):
                         # Formatierung für das Frontend
                         display_date = slot_start.strftime("%A, %d. %b. %H:%M Uhr")
                         available_slots.append({
-                            "start": slot_start.isoformat() + 'Z', # Füge 'Z' für UTC hinzu, da now UTC ist
+                            # ISO-Format mit 'Z' für UTC senden
+                            "start": slot_start.isoformat() + 'Z', 
                             "display": display_date
                         })
     
