@@ -219,21 +219,38 @@ def get_calendar_service():
         return None
 
 def create_calendar_event(service, name, email, service_type, start_time_iso, duration_minutes=60):
-    """Erstellt einen neuen Termin im Google Kalender."""
+    """
+    Erstellt einen neuen Termin im Google Kalender und sendet eine Einladung mit .ics-Anhang 
+    an den Inhaber und den Kunden.
+    """
     try:
-        start_time = datetime.fromisoformat(start_time_iso)
+        owner_email = "patrick.zapp96@gmail.com" 
+        
+        # Zeitberechnung
+        start_time = datetime.fromisoformat(start_time_iso.replace('Z', '+00:00'))
         end_time = start_time + timedelta(minutes=duration_minutes)
+        end_time_iso = end_time.isoformat().replace('+00:00', 'Z')
         
         event = {
-            'summary': f"Termin mit {name} für {service_type}",
-            'description': f"Kunde: {name}\nService: {service_type}\nE-Mail: {email}",
-            'start': {'dateTime': start_time.isoformat(), 'timeZone': 'Europe/Berlin'},
-            'end': {'dateTime': end_time.isoformat(), 'timeZone': 'Europe/Berlin'},
-            'attendees': [{'email': 'patrick.zapp96@gmail.com'}],
+            'summary': f"{service_type} - Termin mit {name}",
+            'description': f"*** Neuer Online-Termin ***\n\nKunde: {name}\nE-Mail: {email}\nDienstleistung: {service_type}\n\nTermin gebucht über Chatbot.",
+            'location': 'Musterstraße 12, 10115 Berlin', 
+            'start': {'dateTime': start_time_iso, 'timeZone': 'Europe/Berlin'},
+            'end': {'dateTime': end_time_iso, 'timeZone': 'Europe/Berlin'},
+            'attendees': [
+                {'email': owner_email},          # Inhaber-E-Mail (erhält Benachrichtigung)
+                {'email': email, 'responseStatus': 'tentative'} # Kunden-E-Mail (erhält Benachrichtigung)
+            ],
             'reminders': {'useDefault': True},
         }
         
-        event = service.events().insert(calendarId='primary', body=event).execute()
+        # WICHTIG: sendUpdates='all' löst den Versand der Kalendereinladung (mit .ics) an die Attendees aus.
+        event = service.events().insert(
+            calendarId='primary', 
+            body=event,
+            sendUpdates='all'
+        ).execute()
+        
         return event.get('htmlLink')
     except HttpError as error:
         print(f'API-Fehler beim Erstellen des Termins: {error}')
@@ -281,7 +298,7 @@ def get_available_slots(service):
                         # Formatierung für das Frontend
                         display_date = slot_start.strftime("%A, %d. %b. %H:%M Uhr")
                         available_slots.append({
-                            "start": slot_start.isoformat(),
+                            "start": slot_start.isoformat() + 'Z', # Füge 'Z' für UTC hinzu, da now UTC ist
                             "display": display_date
                         })
     
@@ -354,6 +371,7 @@ def chat_handler():
             
             if calendar_service:
                 available_slots = get_available_slots(calendar_service)
+            
                 if available_slots:
                     user_states[user_ip]["state"] = "waiting_for_slot_selection"
                     return jsonify({"type": "calendar_slots", "slots": available_slots})
@@ -372,7 +390,7 @@ def chat_handler():
                 f"Name: {data.get('name', 'N/A')}\n"
                 f"E-Mail: {data.get('email', 'N/A')}\n"
                 f"Service: {data.get('service', 'N/A')}\n"
-                f"Datum und Uhrzeit: {data.get('date_time_iso', 'N/A')}\n\n"
+                f"Datum und Uhrzeit (ISO): {data.get('date_time_iso', 'N/A')}\n\n"
                 f"Möchten Sie die Anfrage so absenden? Bitte antworten Sie mit 'Ja' oder 'Nein'."
             )
             user_states[user_ip]["state"] = "waiting_for_confirmation"
@@ -381,6 +399,7 @@ def chat_handler():
         elif current_state == "waiting_for_confirmation":
             if user_message in ["ja", "ja, das stimmt", "bestätigen", "ja bitte"]:
                 calendar_service = get_calendar_service()
+            
                 if calendar_service:
                     event_link = create_calendar_event(
                         calendar_service,
@@ -390,7 +409,7 @@ def chat_handler():
                         user_states[user_ip].get("date_time_iso", "N/A")
                     )
                     if event_link:
-                        response_text = f"Vielen Dank! Ihr Termin wurde erfolgreich gebucht. Sie finden ihn hier: {event_link}"
+                        response_text = f"Vielen Dank! Ihr Termin wurde erfolgreich gebucht und eine Bestätigung (mit Kalenderdatei) an Ihre E-Mail gesendet. Sie finden den Kalendereintrag hier: {event_link}"
                     else:
                         response_text = "Entschuldigung, es gab ein Problem beim Buchen Ihres Termins. Bitte rufen Sie uns direkt an unter 030-123456."
                 else:
@@ -412,7 +431,3 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
-
