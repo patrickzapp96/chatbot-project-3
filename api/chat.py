@@ -225,7 +225,7 @@ def create_calendar_event(service, name, email, service_type, start_time_iso, du
     """
     try:
         # Platzhalter: Bitte durch die ECHTE Inhaber-E-Mail-Adresse ersetzen!
-        owner_email = "inhaber@echte-domain.de" 
+        owner_email = "patrick.zapp96@gmail.com" 
         
         # NEU: Robuste Zeitbehandlung
         # Parst den ISO-String (z.B. 2025-10-28T09:00:00Z) als UTC und entfernt die Zeitzoneninfo
@@ -438,3 +438,4 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
