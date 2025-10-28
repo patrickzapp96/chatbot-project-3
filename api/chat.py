@@ -221,28 +221,31 @@ def get_calendar_service():
 
 def create_calendar_event(service, name, email, service_type, start_time_iso, duration_minutes=60):
     """
-    Erstellt einen neuen Termin im Google Kalender, handhabt robust das Datum/Zeit-Format 
-    und sendet eine Einladung mit .ics-Anhang an den Inhaber und den Kunden.
+    Erstellt einen neuen Termin im Google Kalender. Verwendet den UTC-String direkt aus dem Frontend 
+    und berechnet die Endzeit robust.
     """
     try:
         # !!! WICHTIG: DIESEN PLATZHALTER DURCH GÜLTIGE INHABER-E-MAIL ERSETZEN !!!
         owner_email = "inhaber@echte-domain.de" 
         
-        # Normalisiere den ISO-String (t und z in Großbuchstaben umwandeln)
+        # 1. Normalisiere den ISO-String (t und z in Großbuchstaben umwandeln)
         normalized_time_iso = start_time_iso.upper()
         
-        # Robuste Zeitbehandlung
-        # Parst den ISO-String als UTC und entfernt die Zeitzoneninfo
+        # 2. Robuste Berechnung der Endzeit basierend auf dem UTC-Startpunkt
         start_dt_utc = datetime.fromisoformat(normalized_time_iso.replace('Z', '+00:00')).replace(tzinfo=None)
         end_dt_utc = start_dt_utc + timedelta(minutes=duration_minutes)
 
-        start_time_api = end_dt_utc.isoformat() + 'Z'
-        end_time_api = end_dt_utc.isoformat() + 'Z'
-
+        # 3. Zuweisung für die API
+        # Die Startzeit ist der vom Frontend gesendete, korrekte UTC-String
+        start_time_api = normalized_time_iso # <--- KORRIGIERT: Verwende den korrigierten Input-String
+        end_time_api = end_dt_utc.isoformat() + 'Z' # <--- KORRIGIERT: Nur die Endzeit neu berechnen
+        
         event = {
             'summary': f"{service_type} - Termin mit {name}",
             'description': f"*** Neuer Online-Termin ***\n\nKunde: {name}\nE-Mail: {email}\nDienstleistung: {service_type}\n\nTermin gebucht über Chatbot.",
             'location': 'Musterstraße 12, 10115 Berlin', 
+            # Der ISO-String, den Sie vom Frontend erhalten (start_time_iso), IST bereits die korrekte 
+            # UTC-Zeit (z.B. 10:00:00Z für eine 12:00 Uhr Buchung im Winter).
             'start': {'dateTime': start_time_api, 'timeZone': 'UTC'}, 
             'end': {'dateTime': end_time_api, 'timeZone': 'UTC'},     
             'attendees': [
@@ -455,4 +458,5 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
