@@ -218,6 +218,8 @@ def get_calendar_service():
         print(f"Auth-Fehler: {e}")
         return None
 
+# In Python.txt, ersetzen Sie die Funktion create_calendar_event durch diesen Code:
+
 def create_calendar_event(service, name, email, service_type, start_time_iso, duration_minutes=60):
     """
     Erstellt einen neuen Termin im Google Kalender, handhabt robust das Datum/Zeit-Format 
@@ -227,12 +229,14 @@ def create_calendar_event(service, name, email, service_type, start_time_iso, du
         # Platzhalter: Bitte durch die ECHTE Inhaber-E-Mail-Adresse ersetzen!
         owner_email = "patrick.zapp96@gmail.com" 
         
-        # NEU: Robuste Zeitbehandlung
-        # Parst den ISO-String (z.B. 2025-10-28T09:00:00Z) als UTC und entfernt die Zeitzoneninfo
-        start_dt_utc = datetime.fromisoformat(start_time_iso.replace('Z', '+00:00')).replace(tzinfo=None)
+        # NEU: Normalisiere den ISO-String (kleine Buchstaben t und z in Großbuchstaben umwandeln)
+        normalized_time_iso = start_time_iso.upper()
+        
+        # Robuste Zeitbehandlung
+        # Parst den ISO-String (z.B. 2025-10-31T15:00:00Z) als UTC und entfernt die Zeitzoneninfo
+        start_dt_utc = datetime.fromisoformat(normalized_time_iso.replace('Z', '+00:00')).replace(tzinfo=None)
         end_dt_utc = start_dt_utc + timedelta(minutes=duration_minutes)
 
-        # Konvertiert zurück in das von Google bevorzugte Format (mit 'Z' für UTC)
         start_time_api = start_dt_utc.isoformat() + 'Z'
         end_time_api = end_dt_utc.isoformat() + 'Z'
 
@@ -259,9 +263,11 @@ def create_calendar_event(service, name, email, service_type, start_time_iso, du
         
         return event.get('htmlLink')
     except HttpError as error:
+        # Hier wird der genaue API-Fehler in die Vercel-Logs geschrieben!
         print(f'API-Fehler beim Erstellen des Termins: {error}')
         return None
     except Exception as e:
+        # Hier wird der allgemeine Python-Fehler in die Vercel-Logs geschrieben!
         print(f'Allgemeiner Fehler beim Erstellen des Termins: {e}')
         return None
 
@@ -438,4 +444,5 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
