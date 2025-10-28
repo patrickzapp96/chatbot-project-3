@@ -229,7 +229,7 @@ def create_calendar_event(service, name, email, service_type, start_time_iso, du
             'description': f"Kunde: {name}\nService: {service_type}\nE-Mail: {email}",
             'start': {'dateTime': start_time.isoformat(), 'timeZone': 'Europe/Berlin'},
             'end': {'dateTime': end_time.isoformat(), 'timeZone': 'Europe/Berlin'},
-            'attendees': [{'email': 'patrick.zapp96@web.de'}],
+            'attendees': [{'email': 'info@friseur-muster.de'}],
             'reminders': {'useDefault': True},
         }
         
@@ -412,5 +412,6 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
