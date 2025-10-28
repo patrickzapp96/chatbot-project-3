@@ -226,7 +226,7 @@ def create_calendar_event(service, name, email, service_type, start_time_iso, du
     """
     try:
         # !!! WICHTIG: DIESEN PLATZHALTER DURCH GÜLTIGE INHABER-E-MAIL ERSETZEN !!!
-        owner_email = "inhaber@echte-domain.de" 
+        owner_email = "patrick.zapp96@gmail.com" 
         
         # 1. Startzeit ist der vom Frontend gesendete lokale ISO-String (z.B. 2025-10-28T12:00:00)
         start_time_api = start_time_iso 
@@ -466,3 +466,4 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
