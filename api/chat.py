@@ -4,6 +4,7 @@ import os
 import re
 import json
 from datetime import datetime, timedelta
+import pytz # <-- NEUER IMPORT FÜR ZEITZONEN
 
 # Google API-Importe
 from google.oauth2.credentials import Credentials
@@ -158,7 +159,7 @@ faq_db = {
             "kategorie": "Allgemein",
             "titel": "Kontakt",
             "keywords": ["kontakt", "kontaktdaten", "telefonnummer", "telefon", "nummer", "anrufen"],
-            "antwort": "Sie erreichen uns telefonisch unter 030-123456 oder per E-Mail unter info@friseur-muster.de."
+            "antwort": "Sie erreichen uns telefonisch unter 030-123456 oder per E-Mail unter Ihre-Salon-E-Mail@muster.de."
         },
         {
             "id": 21,
@@ -186,7 +187,7 @@ faq_db = {
             "kategorie": "Terminbuchung",
             "titel": "Termin stornieren",
             "keywords": ["stornieren", "termin stornieren", "termin absagen", "verschieben", "nicht kommen"],
-            "antwort": "Sie können Ihren Termin bis zu 24 Stunden vorher telefonisch unter 030-123456 oder per E-Mail an info@friseur-muster.de absagen. Bei Nichterscheinen behalten wir uns vor, eine Ausfallgebühr zu berechnen."
+            "antwort": "Sie können Ihren Termin bis zu 24 Stunden vorher telefonisch unter 030-123456 oder per E-Mail an Ihre-Salon-E-Mail@muster.de absagen. Bei Nichterscheinen behalten wir uns vor, eine Ausfallgebühr zu berechnen."
         },
         {
             "id": 25,
@@ -218,22 +219,20 @@ def get_calendar_service():
         print(f"Auth-Fehler: {e}")
         return None
 
-# In Python.txt, ersetzen Sie die Funktion create_calendar_event durch diesen Code:
-
 def create_calendar_event(service, name, email, service_type, start_time_iso, duration_minutes=60):
     """
     Erstellt einen neuen Termin im Google Kalender, handhabt robust das Datum/Zeit-Format 
     und sendet eine Einladung mit .ics-Anhang an den Inhaber und den Kunden.
     """
     try:
-        # Platzhalter: Bitte durch die ECHTE Inhaber-E-Mail-Adresse ersetzen!
+        # !!! WICHTIG: DIESEN PLATZHALTER MÜSSEN SIE DURCH EINE GÜLTIGE E-MAIL ERSETZEN !!!
         owner_email = "patrick.zapp96@gmail.com" 
         
-        # NEU: Normalisiere den ISO-String (kleine Buchstaben t und z in Großbuchstaben umwandeln)
+        # Normalisiere den ISO-String (t und z in Großbuchstaben umwandeln)
         normalized_time_iso = start_time_iso.upper()
         
         # Robuste Zeitbehandlung
-        # Parst den ISO-String (z.B. 2025-10-31T15:00:00Z) als UTC und entfernt die Zeitzoneninfo
+        # Parst den ISO-String als UTC und entfernt die Zeitzoneninfo
         start_dt_utc = datetime.fromisoformat(normalized_time_iso.replace('Z', '+00:00')).replace(tzinfo=None)
         end_dt_utc = start_dt_utc + timedelta(minutes=duration_minutes)
 
@@ -244,7 +243,6 @@ def create_calendar_event(service, name, email, service_type, start_time_iso, du
             'summary': f"{service_type} - Termin mit {name}",
             'description': f"*** Neuer Online-Termin ***\n\nKunde: {name}\nE-Mail: {email}\nDienstleistung: {service_type}\n\nTermin gebucht über Chatbot.",
             'location': 'Musterstraße 12, 10115 Berlin', 
-            # Wichtig: Zeitzone als 'UTC' festlegen, da die Zeiten als UTC gesendet werden
             'start': {'dateTime': start_time_api, 'timeZone': 'UTC'}, 
             'end': {'dateTime': end_time_api, 'timeZone': 'UTC'},     
             'attendees': [
@@ -263,20 +261,22 @@ def create_calendar_event(service, name, email, service_type, start_time_iso, du
         
         return event.get('htmlLink')
     except HttpError as error:
-        # Hier wird der genaue API-Fehler in die Vercel-Logs geschrieben!
         print(f'API-Fehler beim Erstellen des Termins: {error}')
         return None
     except Exception as e:
-        # Hier wird der allgemeine Python-Fehler in die Vercel-Logs geschrieben!
         print(f'Allgemeiner Fehler beim Erstellen des Termins: {e}')
         return None
 
 def get_available_slots(service):
-    """Ermittelt und gibt eine Liste freier Termine zurück."""
-    now = datetime.utcnow()
-    one_week_later = now + timedelta(days=7)
+    """Ermittelt und gibt eine Liste freier Termine unter Berücksichtigung der Zeitzone zurück."""
     
-    # Beispiel für feste Öffnungszeiten (kann dynamisch angepasst werden)
+    # 1. Lokale Zeitzone festlegen (Berlin/Deutschland)
+    local_tz = pytz.timezone('Europe/Berlin')
+    
+    # Die aktuelle Zeit in UTC (für den Vergleich, ob Slots in der Zukunft liegen)
+    now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
+    
+    # Beispiel für feste Öffnungszeiten 
     business_hours = {
         0: (9, 18),  # Montag
         1: (9, 18),  # Dienstag
@@ -290,28 +290,39 @@ def get_available_slots(service):
     available_slots = []
     
     for i in range(7):
-        day = now + timedelta(days=i)
-        weekday = day.weekday()
+        # 2. Iteriere durch die Tage, starte ab heute (in lokaler Zeitzone)
+        # Wir verwenden hier datetime.now(local_tz) um den heutigen Tag korrekt zu lokalisieren
+        # und dann .date() um nur das Datum zu erhalten (um Probleme mit der Startzeit zu vermeiden)
+        day_local_date = (datetime.now(local_tz) + timedelta(days=i)).date()
+        weekday = day_local_date.weekday()
         
         if business_hours.get(weekday):
             start_hour, end_hour = business_hours[weekday]
             
             for hour in range(start_hour, end_hour):
-                slot_start = day.replace(hour=hour, minute=0, second=0, microsecond=0)
                 
-                # Check, ob der Slot in der Zukunft liegt
-                if slot_start > now:
+                # Erstelle den Slot als naives Datum/Zeit-Objekt
+                slot_naive = datetime.combine(day_local_date, datetime.min.time()).replace(hour=hour)
+                
+                # 3. Konvertiere den naiven Slot in ein ZEITZONEN-AWARE-Objekt
+                # Dies berücksichtigt automatisch Sommer-/Winterzeit für das gegebene Datum.
+                slot_aware_local = local_tz.localize(slot_naive.replace(tzinfo=None))
+                
+                # 4. Konvertiere den ZEITZONEN-AWARE-Slot in UTC (für die Google API)
+                slot_aware_utc = slot_aware_local.astimezone(pytz.utc)
+                
+                # Check, ob der Slot in der Zukunft liegt (Vergleich muss in UTC erfolgen)
+                if slot_aware_utc > now_utc:
                     is_available = True
-                    # Prüfe gegen vorhandene Termine (vereinfacht)
-                    # Dies erfordert eine erweiterte API-Abfrage, um alle Termine zu prüfen
-                    # Beispielhaft wird hier nur ein generischer Slot hinzugefügt
+                    # (Hier müsste die erweiterte API-Abfrage gegen existierende Termine folgen)
                     
                     if is_available:
-                        # Formatierung für das Frontend
-                        display_date = slot_start.strftime("%A, %d. %b. %H:%M Uhr")
+                        # 5. Formatierung für das Frontend: Zeige die LOKALE Zeit an
+                        display_date = slot_aware_local.strftime("%A, %d. %b. %H:%M Uhr")
+                        
+                        # 6. Sende die korrekte UTC-Zeit (mit 'Z') an das Frontend
                         available_slots.append({
-                            # ISO-Format mit 'Z' für UTC senden
-                            "start": slot_start.isoformat() + 'Z', 
+                            "start": slot_aware_utc.isoformat().replace('+00:00', 'Z'), 
                             "display": display_date
                         })
     
@@ -444,5 +455,3 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
