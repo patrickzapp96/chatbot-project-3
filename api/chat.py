@@ -421,12 +421,12 @@ def chat_handler():
                 display_time = "zum gewählten Zeitpunkt"
 
             response_text = (
-                f"Bitte überprüfen Sie Ihre Angaben:\n\n"
-                f"Name: {data.get('name', 'N/A')}\n\n"
-                f"E-Mail: {data.get('email', 'N/A')}\n\n"
-                f"Service: {data.get('service', 'N/A')}\n\n"
-                f"Termin: {display_time}\n\n"
-                f"Möchten Sie die Anfrage so absenden? Bitte antworten Sie mit 'Ja' oder 'Nein'."
+                f"Bitte überprüfen Sie Ihre Angaben: \n\n"
+                f"\n\n Name: {data.get('name', 'N/A')} \n\n"
+                f"\n\n E-Mail: {data.get('email', 'N/A')} \n\n"
+                f"\n\n Service: {data.get('service', 'N/A')} \n\n"
+                f"\n\n Termin: {display_time} \n\n"
+                f"\n\n Möchten Sie die Anfrage so absenden? Bitte antworten Sie mit 'Ja' oder 'Nein'."
             )
             user_states[user_ip]["state"] = "waiting_for_confirmation"
             return jsonify({"reply": response_text})
@@ -466,6 +466,7 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
