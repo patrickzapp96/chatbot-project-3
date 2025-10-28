@@ -221,33 +221,29 @@ def get_calendar_service():
 
 def create_calendar_event(service, name, email, service_type, start_time_iso, duration_minutes=60):
     """
-    Erstellt einen neuen Termin im Google Kalender. Verwendet den UTC-String direkt aus dem Frontend 
-    und berechnet die Endzeit robust.
+    Erstellt einen neuen Termin im Google Kalender. Verwendet den lokalen ISO-String aus dem Frontend 
+    und bucht den Termin explizit in der lokalen Zeitzone 'Europe/Berlin'.
     """
     try:
         # !!! WICHTIG: DIESEN PLATZHALTER DURCH GÜLTIGE INHABER-E-MAIL ERSETZEN !!!
         owner_email = "inhaber@echte-domain.de" 
         
-        # 1. Normalisiere den ISO-String (t und z in Großbuchstaben umwandeln)
-        normalized_time_iso = start_time_iso.upper()
+        # 1. Startzeit ist der vom Frontend gesendete lokale ISO-String (z.B. 2025-10-28T12:00:00)
+        start_time_api = start_time_iso 
         
-        # 2. Robuste Berechnung der Endzeit basierend auf dem UTC-Startpunkt
-        start_dt_utc = datetime.fromisoformat(normalized_time_iso.replace('Z', '+00:00')).replace(tzinfo=None)
-        end_dt_utc = start_dt_utc + timedelta(minutes=duration_minutes)
-
-        # 3. Zuweisung für die API
-        # Die Startzeit ist der vom Frontend gesendete, korrekte UTC-String
-        start_time_api = normalized_time_iso # <--- KORRIGIERT: Verwende den korrigierten Input-String
-        end_time_api = end_dt_utc.isoformat() + 'Z' # <--- KORRIGIERT: Nur die Endzeit neu berechnen
+        # 2. Endzeit berechnen (nur nötig für die Endzeit)
+        # Wichtig: Wir parsen den String als naives Objekt, da wir die Zeitzone im 'event'-Body setzen.
+        start_dt_naive = datetime.fromisoformat(start_time_api)
+        end_dt_naive = start_dt_naive + timedelta(minutes=duration_minutes)
+        end_time_api = end_dt_naive.isoformat()
         
         event = {
             'summary': f"{service_type} - Termin mit {name}",
             'description': f"*** Neuer Online-Termin ***\n\nKunde: {name}\nE-Mail: {email}\nDienstleistung: {service_type}\n\nTermin gebucht über Chatbot.",
             'location': 'Musterstraße 12, 10115 Berlin', 
-            # Der ISO-String, den Sie vom Frontend erhalten (start_time_iso), IST bereits die korrekte 
-            # UTC-Zeit (z.B. 10:00:00Z für eine 12:00 Uhr Buchung im Winter).
-            'start': {'dateTime': start_time_api, 'timeZone': 'UTC'}, 
-            'end': {'dateTime': end_time_api, 'timeZone': 'UTC'},     
+            # WICHTIG: Die Zeit wird als lokale Zeit übergeben und die Zeitzone wird fest auf Europe/Berlin gesetzt.
+            'start': {'dateTime': start_time_api, 'timeZone': 'Europe/Berlin'}, 
+            'end': {'dateTime': end_time_api, 'timeZone': 'Europe/Berlin'},     
             'attendees': [
                 {'email': owner_email},          # Inhaber-E-Mail (erhält Benachrichtigung)
                 {'email': email, 'responseStatus': 'tentative'} # Kunden-E-Mail (erhält Benachrichtigung)
@@ -308,10 +304,10 @@ def get_available_slots(service):
                 # Erstelle den Slot als naives Datum/Zeit-Objekt basierend auf den festen Stunden (z.B. 9, 10, 11...)
                 slot_naive = datetime.combine(current_day_date, datetime.min.time()).replace(hour=hour)
                 
-                # 3. Konvertiere den naiven Slot in ein ZEITZONEN-AWARE-Objekt (Europe/Berlin)
+                # 3. Konvertiere den naiven Slot in ein ZEITZONEN-AWARE-Objekt
                 slot_aware_local = local_tz.localize(slot_naive.replace(tzinfo=None))
                 
-                # 4. Konvertiere den ZEITZONEN-AWARE-Slot in UTC (für die Google API)
+                # 4. Konvertiere den ZEITZONEN-AWARE-Slot in UTC (für den Vergleich)
                 slot_aware_utc = slot_aware_local.astimezone(pytz.utc)
                 
                 # Check, ob der Slot in der Zukunft liegt (Vergleich muss in UTC erfolgen)
@@ -319,13 +315,15 @@ def get_available_slots(service):
                     is_available = True
                     
                     if is_available:
-                        # 5. Formatierung für das Frontend: 
-                        # NEU: Wir verwenden slot_aware_local, um die korrekte, vom Kunden erwartete Zeit anzuzeigen.
+                        # 5. Formatierung für das Frontend: Zeige die LOKALE Zeit an
                         display_date = slot_aware_local.strftime("%A, %d. %b. %H:%M Uhr")
                         
-                        # 6. Sende die korrekte UTC-Zeit (mit 'Z') an das Frontend zur Buchung
+                        # 6. NEU: Sende die LOKALE ISO-Zeit (ohne Zeitzonen-Offset/Z) an das Frontend
+                        # Dies wird später in create_calendar_event verwendet, um die Zeitzone festzulegen.
+                        local_iso_string = slot_aware_local.strftime("%Y-%m-%dT%H:%M:%S")
+
                         available_slots.append({
-                            "start": slot_aware_utc.isoformat().replace('+00:00', 'Z'), 
+                            "start": local_iso_string, 
                             "display": display_date
                         })
     
@@ -410,14 +408,24 @@ def chat_handler():
                 return jsonify({"reply": "Entschuldigung, es gab ein Problem beim Zugriff auf den Kalender. Bitte rufen Sie uns direkt an unter 030-123456."})
         
         elif current_state == "waiting_for_slot_selection":
+            # Hier wird der lokale ISO-String empfangen (z.B. 2025-10-28T12:00:00)
             user_states[user_ip]["date_time_iso"] = user_message
             data = user_states[user_ip]
+            
+            # OPTIONAL: Für eine schönere Anzeige muss der ISO-String hier in ein lesbares Format gebracht werden.
+            try:
+                # Da der String jetzt lokal ist, können wir ihn zur Anzeige parsen und formatieren
+                booked_dt = datetime.fromisoformat(user_message)
+                display_time = booked_dt.strftime("%A, %d. %b. um %H:%M Uhr")
+            except ValueError:
+                display_time = "zum gewählten Zeitpunkt"
+
             response_text = (
                 f"Bitte überprüfen Sie Ihre Angaben:\n"
                 f"Name: {data.get('name', 'N/A')}\n"
                 f"E-Mail: {data.get('email', 'N/A')}\n"
                 f"Service: {data.get('service', 'N/A')}\n"
-                f"Datum und Uhrzeit (ISO): {data.get('date_time_iso', 'N/A')}\n\n"
+                f"Termin: {display_time}\n\n"
                 f"Möchten Sie die Anfrage so absenden? Bitte antworten Sie mit 'Ja' oder 'Nein'."
             )
             user_states[user_ip]["state"] = "waiting_for_confirmation"
@@ -458,5 +466,3 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
