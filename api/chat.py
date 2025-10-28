@@ -371,7 +371,7 @@ def chat_handler():
         elif current_state == "waiting_for_confirmation_start":
             if user_message.lower() in ["ja", "ja, das stimmt", "bestätigen", "ja bitte"]:
                 user_states[user_ip]["state"] = "waiting_for_name"
-                return jsonify({"reply": "Gerne. Wie lautet Ihr vollständiger Name?"})
+                return jsonify({"reply": "Gerne. <br> Wie lautet Ihr vollständiger Name?"})
             else:
                 user_states[user_ip]["state"] = "initial"
                 return jsonify({"reply": "Die Terminanfrage wurde abgebrochen."})
@@ -379,14 +379,14 @@ def chat_handler():
         elif current_state == "waiting_for_name":
             user_states[user_ip]["name"] = user_message
             user_states[user_ip]["state"] = "waiting_for_email"
-            return jsonify({"reply": "Vielen Dank. Wie lautet Ihre E-Mail-Adresse?"})
+            return jsonify({"reply": "Vielen Dank. <br> Wie lautet Ihre E-Mail-Adresse?"})
 
         elif current_state == "waiting_for_email":
             email_regex = r'^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$'
             if re.match(email_regex, user_message):
                 user_states[user_ip]["email"] = user_message
                 user_states[user_ip]["state"] = "waiting_for_service"
-                return jsonify({"reply": "Alles klar. Welchen Service möchten Sie buchen (z.B. Haarschnitt, Färben, Bartpflege)?"})
+                return jsonify({"reply": "Alles klar. Welchen Service möchten Sie buchen? <br> (z.B. Haarschnitt, Färben, Bartpflege)"})
             else:
                 return jsonify({"reply": "Das scheint keine gültige E-Mail-Adresse zu sein. Bitte geben Sie eine korrekte E-Mail-Adresse ein."})
 
@@ -444,7 +444,7 @@ def chat_handler():
                         user_states[user_ip].get("date_time_iso", "N/A")
                     )
                     if event_link:
-                        response_text = f"Vielen Dank! Ihr Termin wurde erfolgreich gebucht und eine Bestätigung (mit Kalenderdatei) an Ihre E-Mail gesendet. Sie finden den Kalendereintrag hier: {event_link}"
+                        response_text = f"Vielen Dank! Ihr Termin wurde erfolgreich gebucht und eine Bestätigung (mit Kalenderdatei) an Ihre E-Mail gesendet."
                     else:
                         response_text = "Entschuldigung, es gab ein Problem beim Buchen Ihres Termins. Bitte rufen Sie uns direkt an unter 030-123456."
                 else:
@@ -466,6 +466,7 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
