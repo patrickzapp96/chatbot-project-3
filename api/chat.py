@@ -4,7 +4,7 @@ import os
 import re
 import json
 from datetime import datetime, timedelta
-import pytz # <-- NEUER IMPORT FÜR ZEITZONEN
+import pytz # FÜR ZEITZONEN-KORREKTUR
 
 # Google API-Importe
 from google.oauth2.credentials import Credentials
@@ -225,8 +225,8 @@ def create_calendar_event(service, name, email, service_type, start_time_iso, du
     und sendet eine Einladung mit .ics-Anhang an den Inhaber und den Kunden.
     """
     try:
-        # !!! WICHTIG: DIESEN PLATZHALTER MÜSSEN SIE DURCH EINE GÜLTIGE E-MAIL ERSETZEN !!!
-        owner_email = "patrick.zapp96@gmail.com" 
+        # !!! WICHTIG: DIESEN PLATZHALTER DURCH GÜLTIGE INHABER-E-MAIL ERSETZEN !!!
+        owner_email = "inhaber@echte-domain.de" 
         
         # Normalisiere den ISO-String (t und z in Großbuchstaben umwandeln)
         normalized_time_iso = start_time_iso.upper()
@@ -236,7 +236,7 @@ def create_calendar_event(service, name, email, service_type, start_time_iso, du
         start_dt_utc = datetime.fromisoformat(normalized_time_iso.replace('Z', '+00:00')).replace(tzinfo=None)
         end_dt_utc = start_dt_utc + timedelta(minutes=duration_minutes)
 
-        start_time_api = start_dt_utc.isoformat() + 'Z'
+        start_time_api = end_dt_utc.isoformat() + 'Z'
         end_time_api = end_dt_utc.isoformat() + 'Z'
 
         event = {
@@ -289,12 +289,13 @@ def get_available_slots(service):
     
     available_slots = []
     
+    # Wir holen uns das aktuelle, zeitzonen-bewusste Datum und starten die Schleife von DIESEM Tag
+    start_day_local = datetime.now(local_tz).date() 
+    
     for i in range(7):
-        # 2. Iteriere durch die Tage, starte ab heute (in lokaler Zeitzone)
-        # Wir verwenden hier datetime.now(local_tz) um den heutigen Tag korrekt zu lokalisieren
-        # und dann .date() um nur das Datum zu erhalten (um Probleme mit der Startzeit zu vermeiden)
-        day_local_date = (datetime.now(local_tz) + timedelta(days=i)).date()
-        weekday = day_local_date.weekday()
+        # Generiere den Tag für die Iteration
+        current_day_date = start_day_local + timedelta(days=i)
+        weekday = current_day_date.weekday()
         
         if business_hours.get(weekday):
             start_hour, end_hour = business_hours[weekday]
@@ -302,7 +303,8 @@ def get_available_slots(service):
             for hour in range(start_hour, end_hour):
                 
                 # Erstelle den Slot als naives Datum/Zeit-Objekt
-                slot_naive = datetime.combine(day_local_date, datetime.min.time()).replace(hour=hour)
+                # Kombiniere das Datum des Tages mit der festen Stunde (z.B. 9 Uhr)
+                slot_naive = datetime.combine(current_day_date, datetime.min.time()).replace(hour=hour)
                 
                 # 3. Konvertiere den naiven Slot in ein ZEITZONEN-AWARE-Objekt
                 # Dies berücksichtigt automatisch Sommer-/Winterzeit für das gegebene Datum.
