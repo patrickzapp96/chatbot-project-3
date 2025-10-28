@@ -289,7 +289,7 @@ def get_available_slots(service):
     
     available_slots = []
     
-    # Wir holen uns das aktuelle, zeitzonen-bewusste Datum und starten die Schleife von DIESEM Tag
+    # Startet mit dem aktuellen, lokalen Datum (nur Tag, keine Uhrzeit)
     start_day_local = datetime.now(local_tz).date() 
     
     for i in range(7):
@@ -302,12 +302,10 @@ def get_available_slots(service):
             
             for hour in range(start_hour, end_hour):
                 
-                # Erstelle den Slot als naives Datum/Zeit-Objekt
-                # Kombiniere das Datum des Tages mit der festen Stunde (z.B. 9 Uhr)
+                # Erstelle den Slot als naives Datum/Zeit-Objekt basierend auf den festen Stunden (z.B. 9, 10, 11...)
                 slot_naive = datetime.combine(current_day_date, datetime.min.time()).replace(hour=hour)
                 
-                # 3. Konvertiere den naiven Slot in ein ZEITZONEN-AWARE-Objekt
-                # Dies berücksichtigt automatisch Sommer-/Winterzeit für das gegebene Datum.
+                # 3. Konvertiere den naiven Slot in ein ZEITZONEN-AWARE-Objekt (Europe/Berlin)
                 slot_aware_local = local_tz.localize(slot_naive.replace(tzinfo=None))
                 
                 # 4. Konvertiere den ZEITZONEN-AWARE-Slot in UTC (für die Google API)
@@ -316,13 +314,13 @@ def get_available_slots(service):
                 # Check, ob der Slot in der Zukunft liegt (Vergleich muss in UTC erfolgen)
                 if slot_aware_utc > now_utc:
                     is_available = True
-                    # (Hier müsste die erweiterte API-Abfrage gegen existierende Termine folgen)
                     
                     if is_available:
-                        # 5. Formatierung für das Frontend: Zeige die LOKALE Zeit an
+                        # 5. Formatierung für das Frontend: 
+                        # NEU: Wir verwenden slot_aware_local, um die korrekte, vom Kunden erwartete Zeit anzuzeigen.
                         display_date = slot_aware_local.strftime("%A, %d. %b. %H:%M Uhr")
                         
-                        # 6. Sende die korrekte UTC-Zeit (mit 'Z') an das Frontend
+                        # 6. Sende die korrekte UTC-Zeit (mit 'Z') an das Frontend zur Buchung
                         available_slots.append({
                             "start": slot_aware_utc.isoformat().replace('+00:00', 'Z'), 
                             "display": display_date
@@ -457,3 +455,4 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
