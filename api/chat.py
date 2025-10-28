@@ -239,7 +239,7 @@ def create_calendar_event(service, name, email, service_type, start_time_iso, du
         
         event = {
             'summary': f"{service_type} - Termin mit {name}",
-            'description': f"*** Neuer Online-Termin ***\n\nKunde: {name}\nE-Mail: {email}\nDienstleistung: {service_type}\n\nTermin gebucht über Chatbot.",
+            'description': f"*** Neuer Online-Termin ***\n\nKunde: {name}\nE-Mail: {email}\nDienstleistung: {service_type}\n\nTermin gebucht über Branchenspezifische Intelligenz.",
             'location': 'Musterstraße 12, 10115 Berlin', 
             # WICHTIG: Die Zeit wird als lokale Zeit übergeben und die Zeitzone wird fest auf Europe/Berlin gesetzt.
             'start': {'dateTime': start_time_api, 'timeZone': 'Europe/Berlin'}, 
@@ -421,11 +421,11 @@ def chat_handler():
                 display_time = "zum gewählten Zeitpunkt"
 
             response_text = (
-                f"Bitte überprüfen Sie Ihre Angaben:\n"
-                f"Name: {data.get('name', 'N/A')}\n"
-                f"E-Mail: {data.get('email', 'N/A')}\n"
-                f"Service: {data.get('service', 'N/A')}\n"
-                f"Termin: {display_time}\n\n"
+                f"Bitte überprüfen Sie Ihre Angaben:\n"\n
+                f"Name: {data.get('name', 'N/A')}\n"\n
+                f"E-Mail: {data.get('email', 'N/A')}\n"\n
+                f"Service: {data.get('service', 'N/A')}\n"\n
+                f"Termin: {display_time}\n\n"\n
                 f"Möchten Sie die Anfrage so absenden? Bitte antworten Sie mit 'Ja' oder 'Nein'."
             )
             user_states[user_ip]["state"] = "waiting_for_confirmation"
@@ -466,4 +466,5 @@ def chat_handler():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
